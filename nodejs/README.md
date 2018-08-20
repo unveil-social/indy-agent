@@ -28,7 +28,7 @@ If you change the nodejs code, you must run the `./manage build` command, but it
 Both versions of the `./manage` script have other sub-commands - run `./manage` (no arguments) to see the list.  The "rm" commands are useful for restarting from scratch, including for von-network, deleting the Indy Network ledger (e.g. reverting to just having a Steward on the ledger), and for the nodejs agents to delete their wallets. If you delete the Indy Network ledger, you *MUST* delete the nodejs agent wallets.
 
 ## Running locally WITHOUT Docker
-* Download [libindy v1.3](https://github.com/hyperledger/indy-sdk/releases/tag/v1.3.0) and follow [these instructions](https://github.com/hyperledger/indy-sdk/tree/master/doc) to build libindy for your system.
+* Download [libindy v1.3](https://github.com/hyperledger/indy-sdk/releases/tag/v1.3.0) and follow [these instructions](https://github.com/hyperledger/indy-sdk/tree/master/doc) to build libindy for your system. 
 * Make sure the indy-sdk node module can access the built library by following [these instructions](https://www.npmjs.com/package/indy-sdk#installing).
 * Make sure you have a running ledger by running these commands inside of the indy-sdk v1.3 repository.
 

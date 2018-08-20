@@ -1,0 +1,23 @@
+version: 1
+
+wallet:
+  name: wallet1
+  key: test
+  endpoint_did: CPRrRMYAUHQwMafiGZsGPW # In this case we are assuming that every agent unpacks with the same VerKey always (the one associated with this DID). Bad assumption long term, but ok for now.  This is a cloud agent for now. # This DID must be in the wallet
+
+pool:
+  name: pool1
+  ip: 52.40.231.144
+
+modules:
+  connections:
+    path_to_executable: modules/helloWorld.py
+    message_types:
+    - did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/connections/1.0/offer
+    - did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/connections/1.0/request
+    - did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/connections/1.0/response
+    - did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/connections/1.0/acknowledge
+  credentials:
+    path_to_executable: modules/credentials.js
+    message_types: 
+    - did:sov:..../
