@@ -1,0 +1,13 @@
+version: '3'
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: base.dockerfile
+    stdin_open: true
+    tty: true
+    image: indy-agent-base
+    volumes:
+      - "~/.indy_client:/root/.indy_client" 
+    ports:
+      - "3210:3210" 

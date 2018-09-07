@@ -4,3 +4,4 @@ aiohttp==3.3.2
 cchardet==2.1.1
 aiodns==1.1.1
 pytest==3.7.1
+requests==2.19.1

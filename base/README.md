@@ -1,38 +1,90 @@
-# Node.js Indy-Agent v2 Design
+# Modular Indy-Agent
+
+## Getting Started
+
+```
+git clone https://github.com/hyperledger/indy-agent && cd indy-agent/base # Clone the repository
+virtualenv .venv # Setup a python virtual environement
+source .venv/bin/activate # start venv
+pip install -r requirements.txt # install dependencies
+./helper_scripts/create_wallet.py # Use this script to create a new wallet
+# Paste the name of your new wallet in the config.yml file
+./helper_scripts/setup_pool.py # Use this script to setup your pool config and test connection
+# Paste the name of your pool config in the config.yml file
+./index.js # When prompted, type in your agent key
+```
+
+In another terminal:
+
+```
+cd indy-agent/base
+pytest # Test pack, unpack, and the "Hello World" static module
+```
+
+If you don't have a running pool:
+
+```
+git clone https://github.com/hyperledger/indy-sdk && cd indy-sdk
+docker build -f ci/indy-pool.dockerfile -t indy_pool1.4 .
+docker run -itd --name indy_pool1.4 -p 9701-9708:9701-9708 indy_pool1.4
+./helper_scripts/setup_pool.py # Use 127.0.0.1 as the pool ip
+```
+
+### Note on using Docker
+
+This project does have a Dockerfile and a docker-compose.yml file, though they are still a work in progress.  `base.dockerfile` is the base agent itself, and all customizations should be done in `custom.dockerfile`.  
+
+TODO: Add ledger pool to docker-compose.yml. Until we add this, using a local pool will simply hang.
+
+To run the project using docker, 
+
+```
+git clone https://github.com/hyperledger/indy-agent && cd indy-agent/base # Clone the repository
+./helper_scripts/create_wallet.py # Use this script to create a new wallet
+# Paste the name of your new wallet in the config.yml file
+./helper_scripts/setup_pool.py # Use this script to setup your pool config and test connection
+# Paste the name of your pool config in the config.yml file
+docker-compose build
+docker-compose run -p "3210:3210" agent
+```
+
+Note that Docker will have access to the .indy_client directory of the host.
+
 ## Configuration
-The agent configuration is found at `~/.indy_agent_config.yml` and has the following format: 
+The agent configuration file and has the following format: 
 
-```yaml
-version: 1.6.0 # Agent version
+`indy-agent/base/config.yml`
 
+
+```
+version: 1
 wallet:
-  name: wallet1 # defaults to wallet1
-  key: badpass1 # defaults to empty string.  In future versions this will not be found in the config.
+  	name: wallet1
 pool:
-  name: pool1 # defaults to pool1
-  ip: 52.40.231.144 # defaults to 127.0.0.1
-  ports: 9701-9708 # defaults to 9701-9708
-port: 24 # Proposed standard agent port
-static_modules:
-  connections:
-    path: ../modules/connections.py # Path to executable file
-    message_types: # All messages of these types are passed to this module.
-    - did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/connections/1.0/offer
-    - did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/connections/1.0/request
-    - did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/connections/1.0/response
-    - did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/connections/1.0/acknowledge
-    permissions:
-    - wallet/*
-    - credentials/*
-    - proofs/validate
-  ...
-active_modules:
-  ui:
-  	path: ../modules/ui.js # Path to executable file that starts process
-  	message_types: # All messages of these types are passed to this module.
-  	- 
-  	premissions:
-  	- *
+  	name: pool1
+agent:
+  	port: 3210 # Proposed standard agent port
+modules:
+	static:
+	  	connections:
+		    path: ../modules/connections.py # Path to executable file
+		    message_types: # All messages of these types are passed to this module.
+		    - did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/connections/1.0/offer
+		    - did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/connections/1.0/request
+		    - did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/connections/1.0/response
+		    - did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/connections/1.0/acknowledge
+		    permissions:
+		    - wallet/*
+		    - credentials/*
+		    - proofs/validate
+	  	...
+	active:
+	  	ui:
+	  		port: 3000 # Port the active module is listening on
+	  		message_types: # All messages of these types are passed to this module.
+	  		- 
+  			premissions:
+	  		- all
 ```
 
 All agent functionality is found in modules, and the agent itself is just a framework. 
@@ -43,11 +95,9 @@ Static modules are simply scripts, written in any language, that are called when
 EX: `../modules/connections.py 12345abcde DAFaskhlsdfSFAFJKASDFUOIPRQ089789SADadfs980ersfs=`
 
 ### Active Modules
-When the agent is started, it starts each active module as a subprocess, assigns it a port, and gives it a unique token.  
+When the agent is started, it sends a unique token to the module at the port found in the config file.  That token is then used to authenticate (determine permissions of ) the module to the agent.
 
-EX: `../modules/connections.py 3000 12345abcde`.  
-
-That module can then send messages to the agent (at port 24 based on the above config) using that token.  The agent can also POST messages to the module at the assigned port.
+That module can then send messages to the agent (at port 3210 based on the above config) using that token.  The agent can also POST messages to the module at the assigned port.
 
 ## Agent Internal Messages
 Since only the agent can access the wallet, often modules will need access to wallet data and other agent functionality.  This is done through internal agent messages.  These messages are posted to the agent just like any other message and are authenticated with the token.  They are not encrypted and have the following format:
@@ -60,7 +110,7 @@ Since only the agent can access the wallet, often modules will need access to wa
 }
 ```
 
-### Agent Internal Message Definitions
+### Agent Internal Message Definitions (INCOMPLETE)
 
 ##### send\_message
 
@@ -80,10 +130,26 @@ Since only the agent can access the wallet, often modules will need access to wa
 }
 ```
 
+## Permissions
+For now, the permissions define the SDK calls that a person is allowed to make.  All SDK calls are done through the agent, abstracting direct wallet and ledger access.
 
+Available permissions include:
 
+```
+anoncreds.*
+anoncreds.issuer_create_schema
+anoncreds.issuer_create_and_store_credential_def
+...
 
-#Notes
-* I need to check the setup of the agent on startup
-* I need the process to persist beyond the life of the shell
-* I need `agent cli` to start the indy cli to be able to manage the agent
+blob_storage.*
+crypto.*
+did.*
+ledger.*
+non_secrets.*
+pairwise.*
+payment.*
+```
+
+Note: pool and wallet APIs are not available.
+
+These actions are performed by sending an internal message to the base agent.

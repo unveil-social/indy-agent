@@ -1,77 +1,96 @@
-import asyncio, yaml, base64, json
-from os import environ
-from pathlib import Path
-from tempfile import gettempdir
-from indy import crypto, wallet, did
-with open('../config.yml') as f:
-    config = yaml.safe_load(f)
-
-PROTOCOL_VERSION = 2
+import yaml, base64, json
+from indy import crypto
+from aiohttp import web
 
 
-def path_home() -> Path:
-    return Path.home().joinpath(".indy_client")
+CONFIG_PATH = 'config.yml'
+config = None
+
+def get_config():
+    global config
+    if not config:
+        with open(CONFIG_PATH) as f:
+            try:
+                config = yaml.safe_load(f)
+            except:
+                print("Config YAML validation failed");
+                exit(1);
+            # FIXME: Validate config
+    return config
 
 
-def get_pool_genesis_txn_path(pool_name):
-    path_temp = Path(gettempdir()).joinpath("indy")
-    path = path_temp.joinpath("{}.txn".format(pool_name))
-    save_pool_genesis_txn_file(path)
-    return path
+def encode(msg):
+    return base64.urlsafe_b64encode(msg.encode('utf-8')).hex()
 
 
-def pool_genesis_txn_data():
-    pool_ip = config['pool']['ip']
-
-    return "\n".join([
-        '{{"reqSignature":{{}},"txn":{{"data":{{"data":{{"alias":"Node1","blskey":"4N8aUNHSgjQVgkpm8nhNEfDf6txHznoYREg9kirmJrkivgL4oSEimFF6nsQ6M41QvhM2Z33nves5vfSn9n1UwNFJBYtWVnHYMATn76vLuL3zU88KyeAYcHfsih3He6UHcXDxcaecHVz6jhCYz1P2UZn2bDVruL5wXpehgBfBaLKm3Ba","client_ip":"{}","client_port":9702,"node_ip":"{}","node_port":9701,"services":["VALIDATOR"]}},"dest":"Gw6pDLhcBcoQesN72qfotTgFa7cbuqZpkX3Xo6pLhPhv"}},"metadata":{{"from":"Th7MpTaRZVRYnPiabds81Y"}},"type":"0"}},"txnMetadata":{{"seqNo":1,"txnId":"fea82e10e894419fe2bea7d96296a6d46f50f93f9eeda954ec461b2ed2950b62"}},"ver":"1"}}'.format(
-            pool_ip, pool_ip),
-        '{{"reqSignature":{{}},"txn":{{"data":{{"data":{{"alias":"Node2","blskey":"37rAPpXVoxzKhz7d9gkUe52XuXryuLXoM6P6LbWDB7LSbG62Lsb33sfG7zqS8TK1MXwuCHj1FKNzVpsnafmqLG1vXN88rt38mNFs9TENzm4QHdBzsvCuoBnPH7rpYYDo9DZNJePaDvRvqJKByCabubJz3XXKbEeshzpz4Ma5QYpJqjk","client_ip":"{}","client_port":9704,"node_ip":"{}","node_port":9703,"services":["VALIDATOR"]}},"dest":"8ECVSk179mjsjKRLWiQtssMLgp6EPhWXtaYyStWPSGAb"}},"metadata":{{"from":"EbP4aYNeTHL6q385GuVpRV"}},"type":"0"}},"txnMetadata":{{"seqNo":2,"txnId":"1ac8aece2a18ced660fef8694b61aac3af08ba875ce3026a160acbc3a3af35fc"}},"ver":"1"}}'.format(
-            pool_ip, pool_ip),
-        '{{"reqSignature":{{}},"txn":{{"data":{{"data":{{"alias":"Node3","blskey":"3WFpdbg7C5cnLYZwFZevJqhubkFALBfCBBok15GdrKMUhUjGsk3jV6QKj6MZgEubF7oqCafxNdkm7eswgA4sdKTRc82tLGzZBd6vNqU8dupzup6uYUf32KTHTPQbuUM8Yk4QFXjEf2Usu2TJcNkdgpyeUSX42u5LqdDDpNSWUK5deC5","client_ip":"{}","client_port":9706,"node_ip":"{}","node_port":9705,"services":["VALIDATOR"]}},"dest":"DKVxG2fXXTU8yT5N7hGEbXB3dfdAnYv1JczDUHpmDxya"}},"metadata":{{"from":"4cU41vWW82ArfxJxHkzXPG"}},"type":"0"}},"txnMetadata":{{"seqNo":3,"txnId":"7e9f355dffa78ed24668f0e0e369fd8c224076571c51e2ea8be5f26479edebe4"}},"ver":"1"}}'.format(
-            pool_ip, pool_ip),
-        '{{"reqSignature":{{}},"txn":{{"data":{{"data":{{"alias":"Node4","blskey":"2zN3bHM1m4rLz54MJHYSwvqzPchYp8jkHswveCLAEJVcX6Mm1wHQD1SkPYMzUDTZvWvhuE6VNAkK3KxVeEmsanSmvjVkReDeBEMxeDaayjcZjFGPydyey1qxBHmTvAnBKoPydvuTAqx5f7YNNRAdeLmUi99gERUU7TD8KfAa6MpQ9bw","client_ip":"{}","client_port":9708,"node_ip":"{}","node_port":9707,"services":["VALIDATOR"]}},"dest":"4PS3EDQ3dW1tci1Bp6543CfuuebjFrg36kLAUcskGfaA"}},"metadata":{{"from":"TWwCRQRZ2ZHMJFn9TzLp7W"}},"type":"0"}},"txnMetadata":{{"seqNo":4,"txnId":"aa5e817d7cc626170eca175822029339a444eb0ee8f0bd20d3b0b76e566fb008"}},"ver":"1"}}'.format(
-            pool_ip, pool_ip)
-    ])
+def decode(msg):
+    return base64.urlsafe_b64decode(bytes.fromhex(msg)).decode('utf-8')
 
 
-def save_pool_genesis_txn_file(path):
-    data = pool_genesis_txn_data()
+async def pack(msg, theirVerKey = None, myVerKey = None, wallet_handle = None):
+    # JSON to String
+    msg = json.dumps(msg)
 
-    path.parent.mkdir(parents=True, exist_ok=True)
+    # Determine algorithm and encrypt
+    if msg and not theirVerKey and not myVerKey and not wallet_handle:
+        alg = 'x-plain'
+        pre_encoded_msg = msg
+    elif msg and theirVerKey and not myVerKey and not wallet_handle:
+        alg = 'x-anon'
+        pre_encoded_msg = await crypto.anon_crypt(theirVerkey, msg.encode('utf-8'))
+    elif msg and theirVerKey and myVerKey and wallet_handle:
+        alg = 'x-auth'
+        pre_encoded_msg = await crypto.auth_crypt(wallet_handle, myVerKey, theirVerKey, msg.encode('utf-8'))
+    else:
+        print("""
+Error: Invalid usage of pack() function
+pack(msg, null)  ⇒ JOSEhdr & “.” & base64url(msg)
+pack(msg, toKey) ⇒ JOSEhdr & “.” & base64url( anonCrypt(msg, toKey) )
+pack(msg, toKey, myPubKey, myPrivKey, walletHandle) ⇒ JOSEhdr & “.” & base64url( authCrypt(msg, toKey, myPubKey, myPrivKey) )
+        """)
+   
+    # Setup JOSE header
+    jose_header = {"typ":"x-b64nacl","alg":alg}
+    if theirVerKey:
+        jose_header['vk'] = theirVerKey
+    #FIXME: Setup logger
+    print('jose_header: {}'.format(jose_header))
 
-    with open(str(path), "w+") as f:
-        f.writelines(data)
+    # Base64url encode
+    encoded_jose_header = encode(json.dumps(jose_header))
+    encoded_msg = encode(pre_encoded_msg)
+    
+    return encoded_jose_header + '.' + encoded_msg
 
 
-def run_coroutine(coroutine, loop=None):
-    if loop is None:
-        loop = asyncio.get_event_loop()
-    loop.run_until_complete(coroutine())
+async def unpack(encrypted_msg, wallet_handle = None):
+    encrypted_msg_parts = encrypted_msg.split('.')
+    jose_header = json.loads(decode(encrypted_msg_parts[0]))
+    encrypted_msg = decode(encrypted_msg_parts[1])
+    
+    if jose_header['alg'] == 'x-plain':
+        msg = encrypted_msg
+    else:
+        recipient_verkey = jose_header.vk
+        if jose_header['alg'] == 'x-anon':
+            msg = await crypto.anon_decrypt(wallet_handle, recipient_verkey, encrypted_msg)
+        elif jose_header['alg'] == 'x-auth':
+            msg = await crypto.auth_decrypt(wallet_handle, recipient_verkey, encrypted_msg)
+    
+    # Parse JSON
+    return json.loads(msg)    
 
 
-async def get_wallet():
-    wallet_name = config['wallet']['name']
-    wallet_key = config['wallet']['key']
-    wallet_config = json.dumps({"id": wallet_name})
-    wallet_credentials = json.dumps({"key": wallet_key})
-    wallet_handle = await wallet.open_wallet(wallet_config, wallet_credentials)
-
-    return wallet_handle
-
-
-async def pack(msg):
-    wallet = await get_wallet()
-    endpoint_did = config["wallet"]["endpoint_did"]
-    key = await did.key_for_local_did(wallet, endpoint_did)
-    encrypted_bytes = await crypto.anon_crypt(key, msg.encode())
-    return base64.urlsafe_b64encode(encrypted_bytes)
+def exit_handler(sig, frame):
+    print('\b\bShutting down agent... ')
+    #global pool_handle, wallet_handle
+    #loop.call_soon_threadsafe(loop.stop)
+    #FIXME: Unable to close pool and wallet
+    #loop.run_until_complete(pool.close_pool_ledger(pool_handle))
+    #loop.run_until_complete(wallet.close_wallet(wallet_handle))
+    #loop.close()
+    exit(0)
 
 
-async def unpack(msg):
-    encrypted_bytes = base64.urlsafe_b64decode(msg)
-    wallet = await get_wallet()
-    endpoint_did = config["wallet"]["endpoint_did"]
-    key = await did.key_for_local_did(wallet, endpoint_did)
-    data_string = await crypto.anon_decrypt(wallet, key, encrypted_bytes)
-    return data_string
+async def health_handler(request):
+    return web.Response(text="Success")

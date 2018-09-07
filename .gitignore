@@ -5,3 +5,9 @@ sessions
 .vscode/
 .venv
 nohup.out
+*.swp
+archive
+__pycache__/
+.cache
+.pytest_cache
+
