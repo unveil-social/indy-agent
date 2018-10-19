@@ -43,3 +43,9 @@ class Message(object):
 
     def to_dict(self):
         return self.__dict__
+
+class Credential(object):
+    """ Data Model for Credentials
+    """
+    def __init__(self):
+        self.schema = None

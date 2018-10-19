@@ -70,6 +70,11 @@ LOOP.run_until_complete(RUNNER.setup())
 
 SERVER = web.TCPSite(runner=RUNNER, port=PORT)
 
+"""
+async def credential_process(agent):
+    while True:
+        end
+"""
 
 async def conn_process(agent):
     conn_router = agent['conn_router']
