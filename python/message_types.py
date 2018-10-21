@@ -62,8 +62,6 @@ class FORWARD:
 class CRED:
     BASE = "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/credentials/1.0/"
 
-    """
     OFFER = BASE + "offer"
     REQUEST = BASE + "request"
     CREDENTIAL = BASE + "credential"
-    """
