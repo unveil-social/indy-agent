@@ -15,11 +15,34 @@ from message_types import UI, CRED, FORWARD
 from helpers import serialize_bytes_json, bytes_to_str, str_to_bytes
 
 
+async def prepare_credential(msg: Message, my_agent) -> Message:
+	
+	# 1 genSchema
+	# 2 genKeys
+	# 3 issueAccumulator
+
+	# define schema
+
+	schema_name = msg.content['name']
+
+	attrs = {}
+
+	tags = {}
+
+	(schema_id, schema_json) = await anoncreds.issuer_create_schema(msg.did, schema_name, 1.0, attrs)
+
+	(cred_def_id, cred_def_json) = await anoncreds.issuer_create_and_store_credential_def(my_agent.wallet_handle, msg.did, schema_json, tag)
+
+	"""
+	return Message(
+		type=UI.CREDENTIAL_PREPARED,
+		id=my_agent.ui_token,
+		content={'name': conn_name})
+	"""
 
 async def send_offer(msg: Message, my_agent) -> Message:
-	conn_name = msg.content['name']
 
-	cred_def_id = {}
+	cred_def_id = msg.content['cred_def_id']
 
 	cred_offer_json = await anoncreds.issuer_create_credential_offer(my_agent.wallet_handle, cred_def_id)
 
@@ -40,11 +63,13 @@ async def receive_offer(msg: Message, my_agent) -> Message:
 	"""
 
 async def send_request(msg: Message, my_agent) -> Message:
-	conn_name = msg.content['name']
-
+	cred_offer_json = msg.content['cred_offer']
+	cred_def_json = msg.content['cred_def']
 	# 4 createClaimRequest
 
-	cred_req_json, cred_req_metadata_json = await anoncreds.prover_create_credential_req(my_agent.wallet_handle, msg.did, cred_offer_json, cred_def_json, master_secret_id)
+	master_secret_id = {}
+
+	(cred_req_json, cred_req_metadata_json) = await anoncreds.prover_create_credential_req(my_agent.wallet_handle, msg.did, cred_offer_json, cred_def_json, master_secret_id)
 
 	"""
 	return Message(
@@ -54,7 +79,6 @@ async def send_request(msg: Message, my_agent) -> Message:
 	"""
 
 async def receive_request(msg: Message, my_agent) -> Message:
-	conn_name = msg.content['name']
 
 	"""
 	return Message(
@@ -64,32 +88,13 @@ async def receive_request(msg: Message, my_agent) -> Message:
 	"""
 
 
-async def prepare_credential(msg: Message, my_agent) -> Message:
-	
-	# 1 genSchema
-	# 2 genKeys
-	# 3 issueAccumulator
-
-	# define schema
-
-	schema_name = {}
-
-	schema_id, schema_json = await anoncreds.issuer_create_schema(msg.did, schema_name, 1.0, attrs)
-
-	cred_def_id, cred_def_json = await anoncreds.issuer_create_and_store_credential_def(my_agent.wallet_handle, msg.did, schema_json, tag)
-
-	"""
-	return Message(
-		type=UI.CREDENTIAL_PREPARED,
-		id=my_agent.ui_token,
-		content={'name': conn_name})
-	"""
-
 async def issue_credential(msg: Message, my_agent) -> Message:
-	
+	cred_offer = msg.content['offer']
+	cred_request = msg.content['request']
+
 	# 5 issueClaim
 
-	cred_json = await anoncreds.issuer_create_credential(my_agent.wallet_handle, cred_offer_json, cred_req_json, cred_values_json)
+	cred_json = await anoncreds.issuer_create_credential(my_agent.wallet_handle, cred_offer_json, cred_req_json, attrs)
 
 	"""
 	return Message(
@@ -99,7 +104,6 @@ async def issue_credential(msg: Message, my_agent) -> Message:
 	"""
 
 async def receive_credential(msg: Message, my_agent) -> Message:
-	conn_name = msg.content['name']
 
 	# 6 processClaim
 
@@ -113,6 +117,7 @@ async def receive_credential(msg: Message, my_agent) -> Message:
 	"""
 
 async def view_credential(msg: Message, my_agent) -> Message:
+	cred_id = msg.content['id']
 
 	cred_json = await anoncreds.prover_get_credential(my_agent.wallet_handle, cred_id)
 
@@ -125,8 +130,7 @@ async def view_credential(msg: Message, my_agent) -> Message:
 
 
 async def get_all(msg: Message, my_agent) -> Message:
-	conn_name = msg.content['name']
-	#wallet = my_agent.WALLET
+
 	credentials_json = await anoncreds.prover_get_credentials(my_agent.wallet_handle, None)
 
 	"""
@@ -137,6 +141,7 @@ async def get_all(msg: Message, my_agent) -> Message:
 	"""
 
 
+"""
 # NOTE: will be tough to define before Proofs module is built
 async def verify_credential(msg: Message, my_agent) -> Message:
 
@@ -145,9 +150,8 @@ async def verify_credential(msg: Message, my_agent) -> Message:
 	valid = await anoncreds.verifier_verify_proof(proof_request_json, proof_json, schemas_json, credential_defs_json, rev_reg_defs_json, rev_regs_json)
 	
 
-	"""
 	return Message(
 		type=UI.CREDENTIAL_VERIFIED,
 		id=my_agent.ui_token,
 		content={'name': conn_name})
-	"""
+"""

@@ -22,6 +22,7 @@ from indy import crypto, did, error, IndyError
 import modules.connection as connection
 import modules.init as init
 import modules.ui as ui
+#import modules.credential as credential
 import serializer.json_serializer as Serializer
 from receiver.message_receiver import MessageReceiver as Receiver
 from router.simple_router import SimpleRouter as Router
@@ -51,6 +52,9 @@ AGENT['ui_router'] = Router()
 AGENT['conn_router'] = Router()
 AGENT['conn_receiver'] = Receiver()
 
+#AGENT['cred_router'] = Router()
+#AGENT['cred_receiver'] = Receiver()
+
 AGENT['agent'] = Agent()
 UI_TOKEN = uuid.uuid4().hex
 AGENT['agent'].ui_token = UI_TOKEN
@@ -61,6 +65,7 @@ ROUTES = [
     web.static('/res', 'view/res'),
     web.post('/indy', AGENT['msg_receiver'].handle_message),
     web.post('/offer', AGENT['conn_receiver'].handle_message)
+    #web.post('/credoffer', AGENT['cred_receiver'].handle_message)
 ]
 
 AGENT.add_routes(ROUTES)
@@ -95,6 +100,25 @@ async def conn_process(agent):
         if res is not None:
             await ui_event_queue.send(Serializer.pack(res))
 
+async def cred_process(agent):
+    cred_router = agent['cred_router']
+    cred_receiver = agent['cred_receiver']
+    ui_event_queue = agent['ui_event_queue']
+
+    await cred_router.register(CRED.OFFER, credential.offer_received)
+
+    while True:
+        msg_bytes = await cred_receiver.recv()
+        try:
+            msg = Serializer.unpack(msg_bytes)
+        except Exception as e:
+            print('Failed to unpack message: {}\n\nError: {}'.format(msg_bytes, e))
+            continue
+
+        res = await cred_router.route(msg, agent['agent'])
+        if res is not None:
+            await ui_event_queue.send(Serializer.pack(res))
+
 
 async def message_process(agent):
     """ Message processing loop task.
@@ -107,6 +131,10 @@ async def message_process(agent):
     await msg_router.register(CONN.SEND_REQUEST, connection.request_received)
     await msg_router.register(CONN.SEND_RESPONSE, connection.response_received)
     await msg_router.register(CONN.SEND_MESSAGE, connection.message_received)
+
+    #await.msg_router.register(CRED.OFFER, credential.offer_received)
+    #await.msg_router.register(CRED.REQUEST, credential.request_received)
+    #await.msg_router.register(CRED.CREDENTIAL, credential.credential_received)
 
     while True:
         encrypted_msg_bytes = await msg_receiver.recv()
@@ -177,6 +205,10 @@ async def ui_event_process(agent):
     await ui_router.register(UI.SEND_RESPONSE, connection.send_response)
     await ui_router.register(UI.SEND_MESSAGE, connection.send_message)
 
+    #await ui_router.register(UI.OFFER_SENT, credential.send_offer)
+    #await ui_router.register(UI.OFFER_RECEIVED, credential.received_offer)
+    #await ui_router.register(UI.CREDENTIAL_ISSUED, credential.issue_credential)
+
     await ui_router.register(UI.STATE_REQUEST, ui.ui_connect)
     await ui_router.register(UI.INITIALIZE, init.initialize_agent)
 
@@ -203,6 +235,7 @@ try:
     print('Your UI Token is: {}'.format(UI_TOKEN))
     LOOP.create_task(SERVER.start())
     LOOP.create_task(conn_process(AGENT))
+    #LOOP.create_task(cred_process(AGENT))
     LOOP.create_task(message_process(AGENT))
     LOOP.create_task(ui_event_process(AGENT))
     LOOP.run_forever()
