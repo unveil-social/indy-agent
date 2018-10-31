@@ -19,16 +19,15 @@ import json
 from aiohttp import web
 from indy import crypto, did, error, IndyError
 
-import modules.connection as connection
-import modules.init as init
-import modules.ui as ui
-#import modules.credential as credential
+from modules.connection import Connection
+from modules.ui import Ui
+import modules.ui
 import serializer.json_serializer as Serializer
 from receiver.message_receiver import MessageReceiver as Receiver
-from router.simple_router import SimpleRouter as Router
+from router.family_router import FamilyRouter as Router
 from ui_event import UIEventQueue
 from model import Agent
-from message_types import UI, CONN
+from message_types import UI, CONN, CONN_UI
 from model import Message
 
 
@@ -56,11 +55,16 @@ AGENT['conn_receiver'] = Receiver()
 #AGENT['cred_receiver'] = Receiver()
 
 AGENT['agent'] = Agent()
+AGENT['modules'] = {
+    'connection': Connection(AGENT['agent']),
+    'ui': Ui(AGENT['agent']),
+}
+
 UI_TOKEN = uuid.uuid4().hex
 AGENT['agent'].ui_token = UI_TOKEN
 
 ROUTES = [
-    web.get('/', ui.root),
+    web.get('/', modules.ui.root),
     web.get('/ws', AGENT['ui_event_queue'].ws_handler),
     web.static('/res', 'view/res'),
     web.post('/indy', AGENT['msg_receiver'].handle_message),
@@ -85,8 +89,9 @@ async def conn_process(agent):
     conn_router = agent['conn_router']
     conn_receiver = agent['conn_receiver']
     ui_event_queue = agent['ui_event_queue']
+    connection = agent['modules']['connection']
 
-    await conn_router.register(CONN.SEND_INVITE, connection.invite_received)
+    conn_router.register(CONN.FAMILY, connection)
 
     while True:
         msg_bytes = await conn_receiver.recv()
@@ -96,7 +101,7 @@ async def conn_process(agent):
             print('Failed to unpack message: {}\n\nError: {}'.format(msg_bytes, e))
             continue
 
-        res = await conn_router.route(msg, agent['agent'])
+        res = await conn_router.route(msg)
         if res is not None:
             await ui_event_queue.send(Serializer.pack(res))
 
@@ -127,10 +132,9 @@ async def message_process(agent):
     msg_router = agent['msg_router']
     msg_receiver = agent['msg_receiver']
     ui_event_queue = agent['ui_event_queue']
+    connection = agent['modules']['connection']
 
-    await msg_router.register(CONN.SEND_REQUEST, connection.request_received)
-    await msg_router.register(CONN.SEND_RESPONSE, connection.response_received)
-    await msg_router.register(CONN.SEND_MESSAGE, connection.message_received)
+    msg_router.register(CONN.FAMILY, connection)
 
     #await.msg_router.register(CRED.OFFER, credential.offer_received)
     #await.msg_router.register(CRED.REQUEST, credential.request_received)
@@ -189,7 +193,7 @@ async def message_process(agent):
         msg.content['did'] = this_did
         msg = Serializer.unpack_dict(msg.content)
 
-        res = await msg_router.route(msg, agent['agent'])
+        res = await msg_router.route(msg)
 
         if res is not None:
             await ui_event_queue.send(Serializer.pack(res))
@@ -198,19 +202,11 @@ async def message_process(agent):
 async def ui_event_process(agent):
     ui_router = agent['ui_router']
     ui_event_queue = agent['ui_event_queue']
+    connection = agent['modules']['connection']
+    ui = agent['modules']['ui']
 
-    await ui_router.register(UI.SEND_INVITE, connection.send_invite)
-    await ui_router.register(UI.INVITE_RECEIVED, connection.invite_received)
-    await ui_router.register(UI.SEND_REQUEST, connection.send_request)
-    await ui_router.register(UI.SEND_RESPONSE, connection.send_response)
-    await ui_router.register(UI.SEND_MESSAGE, connection.send_message)
-
-    #await ui_router.register(UI.OFFER_SENT, credential.send_offer)
-    #await ui_router.register(UI.OFFER_RECEIVED, credential.received_offer)
-    #await ui_router.register(UI.CREDENTIAL_ISSUED, credential.issue_credential)
-
-    await ui_router.register(UI.STATE_REQUEST, ui.ui_connect)
-    await ui_router.register(UI.INITIALIZE, init.initialize_agent)
+    ui_router.register(CONN_UI.FAMILY, connection)
+    ui_router.register(UI.FAMILY, ui)
 
     while True:
         msg = await ui_event_queue.recv()
@@ -226,7 +222,7 @@ async def ui_event_process(agent):
             print('Invalid token received, rejecting message: {}'.format(msg))
             continue
 
-        res = await ui_router.route(msg, agent['agent'])
+        res = await ui_router.route(msg)
         if res is not None:
             await ui_event_queue.send(Serializer.pack(res))
 
