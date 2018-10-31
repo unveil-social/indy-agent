@@ -52,8 +52,30 @@ class FORWARD:
     FORWARD = BASE + "forward"
 
 class CRED:
-    BASE = "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/credentials/1.0/"
+    FAMILY = "credentials"
+    VERSION = "1.0"
+    BASE = "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/" + FAMILY + "/" + VERSION + "/"
 
     OFFER = BASE + "offer"
     REQUEST = BASE + "request"
     CREDENTIAL = BASE + "credential"
+
+class CRED_UI:
+    FAMILY = "credentials"
+    VERSION = "1.0"
+    BASE = "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/" + FAMILY + "/" + VERSION + "/"
+
+    SEND_OFFER = BASE + "send_offer"
+    OFFER_SENT = BASE + "offer_sent"
+    OFFER_RECEIVED = BASE + "offer_received"
+
+    SEND_REQUEST = BASE + "send_request"
+    REQUEST_SENT = BASE + "request_sent"
+    REQUEST_RECEIVED = BASE + "request_received"
+
+    SEND_CREDENTIAL = BASE + "send_credential"
+    CREDENTIAL_SENT = BASE + "credential_sent"
+    CREDENTIAL_RECEIVED = BASE + "credential_received"
+
+    ISSUE_CREDENTIAL = BASE + "issue_credential"
+    CREDENTIAL_ISSUED = BASE + "credential_issued"

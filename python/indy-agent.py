@@ -19,6 +19,7 @@ import json
 from aiohttp import web
 from indy import crypto, did, error, IndyError
 
+#from modules.credential import Credential
 from modules.connection import Connection
 from modules.ui import Ui
 import modules.ui
@@ -109,8 +110,9 @@ async def cred_process(agent):
     cred_router = agent['cred_router']
     cred_receiver = agent['cred_receiver']
     ui_event_queue = agent['ui_event_queue']
+    credential = agent['modules']['credential']
 
-    await cred_router.register(CRED.OFFER, credential.offer_received)
+    cred_router.register(CRED.FAMILY, credential)
 
     while True:
         msg_bytes = await cred_receiver.recv()
@@ -133,12 +135,10 @@ async def message_process(agent):
     msg_receiver = agent['msg_receiver']
     ui_event_queue = agent['ui_event_queue']
     connection = agent['modules']['connection']
+    #credential = agent['modules']['credential']
 
     msg_router.register(CONN.FAMILY, connection)
-
-    #await.msg_router.register(CRED.OFFER, credential.offer_received)
-    #await.msg_router.register(CRED.REQUEST, credential.request_received)
-    #await.msg_router.register(CRED.CREDENTIAL, credential.credential_received)
+    #msg_router.register(CRED.FAMILY, credential)
 
     while True:
         encrypted_msg_bytes = await msg_receiver.recv()
@@ -203,8 +203,10 @@ async def ui_event_process(agent):
     ui_router = agent['ui_router']
     ui_event_queue = agent['ui_event_queue']
     connection = agent['modules']['connection']
+    #credential = agent['modules']['credential']
     ui = agent['modules']['ui']
 
+    #ui_router.register(CRED_UI.FAMILY, credential)
     ui_router.register(CONN_UI.FAMILY, connection)
     ui_router.register(UI.FAMILY, ui)
 
