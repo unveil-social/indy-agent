@@ -20,7 +20,7 @@ class Credential(Module):
 	def __init__(self, agent):
 		self.agent = agent
 		self.router = SimpleRouter()
-		
+
 		self.router.register(CRED.OFFER, self.offer_received)
         self.router.register(CRED.REQUEST, self.request_received)
         self.router.register(CRED.CREDENTIAL, self.credential_received)
@@ -77,7 +77,10 @@ class Credential(Module):
 		return Message(
 			type=UI.OFFER_RECEIVED,
 			id=my_agent.ui_token,
-			content={'name': conn_name})
+			content={'schema_id': cred_schema,
+                     'cred_def_id': cred_def,
+                     'nonce': offer_nonce,
+                     'key_correctness_proof': key_proof})
 		"""
 
 	async def send_request(msg: Message, my_agent) -> Message:
@@ -102,7 +105,11 @@ class Credential(Module):
 		return Message(
 			type=UI.REQUEST_RECEIVED,
 			id=my_agent.ui_token,
-			content={'name': conn_name})
+			content={'prover_did': their_did,
+                     'cred_def_id': cred_def,
+                     'blinded_ms': blinded_ms,
+                     'blinded_ms_correctness_proof': blinded_ms_proof,
+                     'nonce': request_nonce})
 		"""
 
 
