@@ -1,5 +1,15 @@
 """
 Module to handle credential management.
+
+The general flow for most credentials:
+
+Party A                              Party B
+0.Prepare Credential
+1.Send Offer        ---------------> 2.Receive Offer
+4.Receive Request   <--------------- 3.Send Request
+5.Create Credential
+6.Send Credential   ---------------> 7.Receive Credential
+                                     8.Store Credential
 """
 
 
@@ -35,10 +45,6 @@ class Credential(Module):
 
 	async def prepare_credential(msg: Message, my_agent) -> Message:
 		
-		# 1 genSchema
-		# 2 genKeys
-		# 3 issueAccumulator
-
 		# define schema
 
 		schema_name = msg.content['name']
@@ -86,7 +92,6 @@ class Credential(Module):
 	async def send_request(msg: Message, my_agent) -> Message:
 		cred_offer_json = msg.content['cred_offer']
 		cred_def_json = msg.content['cred_def']
-		# 4 createClaimRequest
 
 		master_secret_id = {}
 
@@ -113,7 +118,7 @@ class Credential(Module):
 		"""
 
 
-	async def issue_credential(msg: Message, my_agent) -> Message:
+	async def create_credential(msg: Message, my_agent) -> Message:
 		cred_offer = msg.content['offer']
 		cred_request = msg.content['request']
 
