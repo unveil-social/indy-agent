@@ -58,3 +58,12 @@ class FORWARD:
 
     FORWARD_TO_KEY = BASE + "forward_to_key"
     FORWARD = BASE + "forward"
+
+class CRED:
+    BASE = "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/credentials/1.0/"
+
+    """
+    OFFER = BASE + "offer"
+    REQUEST = BASE + "request"
+    CREDENTIAL = BASE + "credential"
+    """
