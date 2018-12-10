@@ -1,5 +1,15 @@
 """
 Module to handle credential management.
+
+The general flow for most credentials:
+
+Party A                              Party B
+0.Prepare Credential
+1.Send Offer        ---------------> 2.Receive Offer
+4.Receive Request   <--------------- 3.Send Request
+5.Create Credential
+6.Send Credential   ---------------> 7.Receive Credential
+                                     8.Store Credential
 """
 
 
@@ -29,6 +39,19 @@ async def send_offer(msg: Message, my_agent) -> Message:
 		id=my_agent.ui_token,
 		content={'name': conn_name})
 	"""
+
+async def route(self, msg: Message) -> Message:
+    return await self.router.route(msg)
+
+
+async def prepare_credential(msg: Message, my_agent) -> Message:
+	
+	# define schema
+	schema_name = msg.content['name']
+	attrs = {}
+	tags = {}
+	(schema_id, schema_json) = await anoncreds.issuer_create_schema(msg.did, schema_name, 1.0, attrs)
+	(cred_def_id, cred_def_json) = await anoncreds.issuer_create_and_store_credential_def(my_agent.wallet_handle, msg.did, schema_json, tag)
 
 async def receive_offer(msg: Message, my_agent) -> Message:
 
@@ -63,6 +86,10 @@ async def receive_request(msg: Message, my_agent) -> Message:
 		content={'name': conn_name})
 	"""
 
+async def send_request(msg: Message, my_agent) -> Message:
+	cred_offer_json = msg.content['cred_offer']
+	cred_def_json = msg.content['cred_def']
+
 
 async def prepare_credential(msg: Message, my_agent) -> Message:
 	
@@ -84,6 +111,10 @@ async def prepare_credential(msg: Message, my_agent) -> Message:
 		id=my_agent.ui_token,
 		content={'name': conn_name})
 	"""
+
+async def create_credential(msg: Message, my_agent) -> Message:
+	cred_offer = msg.content['offer']
+	cred_request = msg.content['request']
 
 async def issue_credential(msg: Message, my_agent) -> Message:
 	
